@@ -3,15 +3,19 @@
 require_relative "ods_extractor/version"
 require_relative "ods_extractor/csv_output"
 require_relative "ods_extractor/sax_handler"
+require_relative "ods_extractor/row_output"
 require_relative "ods_extractor/sheet_filter_handler"
-require 'zip_tricks'
-require 'nokogiri'
+
+require "zip_tricks"
+require "nokogiri"
 
 module ODSExtractor
   class Error < StandardError; end
-  TRUE_FN = ->(_sheet_name) { true }
+  ACCEPT_ALL_SHEETS_PROC = ->(_sheet_name) { true }
+  PROGRESS_HANDLER_PROC = ->(bytes_read, bytes_remaining) { true }
+  CHUNK_SIZE = 32 * 1024
 
-  def self.extract(input_io:, output_handler:, sheet_name_filter_proc: TRUE_FN)
+  def self.extract(input_io:, output_handler:, sheet_names: ACCEPT_ALL_SHEETS_PROC, progress_handler_proc: PROGRESS_HANDLER_PROC)
     # Feed the XML from the extractor directly to the SAX parser
     entries = ZipTricks::FileReader.read_zip_structure(io: input_io)
     contentx_xml_zip_entry = entries.find { |e| e.filename == "content.xml" }
@@ -19,7 +23,7 @@ module ODSExtractor
     raise Error, "No `content.xml` found in the ODS file" unless contentx_xml_zip_entry
 
     sax_handler = ODSExtractor::SAXHandler.new(output_handler)
-    sax_filter = ODSExtractor::SheetFilterHandler.new(sax_handler, &sheet_name_filter_proc)
+    sax_filter = ODSExtractor::SheetFilterHandler.new(sax_handler, sheet_names)
 
     # Because we do not have a random access IO to the deflated XML inside the zip, but
     # we will be reading the deflated bytes and inflating them ourselves, we can't really
@@ -32,14 +36,15 @@ module ODSExtractor
     # push parser will abort with an error if we force-feed it chunks which are too big.
     # So read smol.
     ex = contentx_xml_zip_entry.extractor_from(input_io)
+    progress_handler_proc.call(0, contentx_xml_zip_entry.uncompressed_size)
     bytes_read = 0
-    yield(0, contentx_xml_zip_entry.uncompressed_size) if block_given?
     until ex.eof?
-      chunk = ex.extract(64 * 1024)
+      chunk = ex.extract(CHUNK_SIZE)
       bytes_read += chunk.bytesize
-      yield(bytes_read, contentx_xml_zip_entry.uncompressed_size - bytes_read) if block_given?
+      progress_handler_proc.call(bytes_read, contentx_xml_zip_entry.uncompressed_size - bytes_read)
       push_parser << chunk
     end
-    push_parser.finish
+  ensure
+    push_parser&.finish
   end
 end

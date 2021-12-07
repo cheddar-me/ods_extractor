@@ -19,6 +19,7 @@ class ODSExtractor::CSVOutput
   def sheet_name_to_csv_file_name(sheet_name)
     # This is a subtle spot where there can be a security problem - we take an unsanitized sheet name
     # and we include it in a filesystem path. So some precaution needs to be taken.
-    "#{sheet_name}.csv"
+    sanitized_sheet_name = File.basename(File.expand_path(sheet_name))
+    "#{sanitized_sheet_name}.csv"
   end
 end

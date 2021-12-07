@@ -1,5 +1,12 @@
 require "nokogiri"
 
+# Because few people use this often: an XML SAX parser parses the document in a streaming fashion instead of
+# reconstructing a DOM tree. You can build a DOM tree based on a SAX parser but not the other way around. SAX parsers become
+# useful when parsing documents which are very large - and our "contents.xml" _is_ damn large indeed. To use a SAX parser we need
+# to write a handler, in the handler we are going to capture the elements we care about. The OpenOasis schema structures
+# a single sheet inside a "table:table" element, then every row is in "table:table-row", then every cell is within
+# "table:table-cell". Anything further down we can treat as text and just capture "as-is" (there are some wrapper tags
+# for paragraphs but these are not really important for our mission).
 class ODSExtractor::SAXHandler < Nokogiri::XML::SAX::Document
   MAX_CELLS_PER_ROW = 2**14
   MAX_ROWS_PER_SHEET = 2**20
@@ -44,6 +51,8 @@ class ODSExtractor::SAXHandler < Nokogiri::XML::SAX::Document
   end
 
   def characters(string)
+    # @charbuf is only not-nil when we are inside a "table:table-cell" element, this allows us to skip
+    # any chardata that is outside of cells for whatever reason
     @charbuf << string if @charbuf
   end
 
