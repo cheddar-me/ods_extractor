@@ -15,7 +15,7 @@ documents in this way - but they first load the entire document into memory, usu
 down when huge documents are involved.
 
 This gem uses a SAX parser to ingest the spreadsheets in a streaming fashion. An ODS document is just a ZIP with a huge XML inside
-of it. For opening the ZIP file [zip_tricks](https://github.com/WeTransfer/zip_tricks) is used. For parsing the XML
+of it. The gem will open the ZIP file and parse the worksheets as it inflates them, without saving temporary files to disk. For parsing the XML
 a SAX parser from Nokogiri is used - you are likely to have Nokogiri already installed, as Rails uses it to sanitize HTML. The extraction
 of the rows happens as the XML is fed to Nokogiri directly from the ZIP file, without having to create any intermediate files on
 the file system.
