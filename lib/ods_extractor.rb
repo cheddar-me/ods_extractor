@@ -6,7 +6,7 @@ require_relative "ods_extractor/sax_handler"
 require_relative "ods_extractor/row_output"
 require_relative "ods_extractor/sheet_filter_handler"
 
-require "zip_tricks"
+require "zip_kit"
 require "nokogiri"
 
 module ODSExtractor
@@ -17,7 +17,7 @@ module ODSExtractor
 
   def self.extract(input_io:, output_handler:, sheet_names: ACCEPT_ALL_SHEETS_PROC, progress_handler_proc: PROGRESS_HANDLER_PROC)
     # Feed the XML from the extractor directly to the SAX parser
-    entries = ZipTricks::FileReader.read_zip_structure(io: input_io)
+    entries = ZipKit::FileReader.read_zip_structure(io: input_io)
     contentx_xml_zip_entry = entries.find { |e| e.filename == "content.xml" }
 
     raise Error, "No `content.xml` found in the ODS file" unless contentx_xml_zip_entry
